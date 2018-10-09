@@ -1,0 +1,207 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{../common}
+\usepackage{../pagesetup}
+
+\newcommand{\p}{\mathbb{P}}
+\newcommand{\D}{\mathcal{D}}
+\newcommand{\X}{\mathcal{X}}
+\newcommand{\h}{\mathcal{H}}
+
+\begin{document}
+\lecture{**LECTURE-NUMBER**}{**DATE**}{**LECTURER**}{**SCRIBE**}
+\lecture{2}{October 3}{Nati Srebro}{Owen Melia}{Statistical Learning and PAC Learning}
+
+
+\subsection{Introduction}
+  We have moved from the online learning setting to a "batch learning" one. Now
+  we have an unknown Source Distribution $\D$, a probability distribution over
+  $(\X, Y)$.
+  It may be convenient to think of $\D$ as a distribution over $\X$ and $\X |
+  Y$, and at other times we will think of $\D$ as a distribution over $Y$ and
+  $Y | \X$.
+  We will be attempting to construct a predictor $h$ given $S \sim D^m$, an
+  independent and identically distributed sample of $m$ training points.
+  We make two assumptions on the training set $S$:
+  \begin{enumerate}
+    \item $S$ is an i.i.d sample.
+    \item $S$ is drawm from the same source distribution $\D$ which we will
+    later use the predictor on.
+  \end{enumerate}
+  These assumptions are often left unsatisfied in the real world (Prof.
+  Srebro's example of a sample of dashcam pictures to create a pedestrian
+  recognition tool)
+ Our goal is to construct a predictor $h: \X \to Y$ with expected error
+ \footnote{Expected error is sometimes called 'risk' and 'loss'}
+  $L_\D (h)$ is minimized.
+  \begin{equation}\label{expectederror}
+    L_\D(h) = \p_{(\X, Y) \sim \D}\left[ h(x) \neq y \right]
+  \end{equation}
+%\subsection{Learning Process}
+  This type of learning takes the following process:
+  \begin{enumerate}
+    \item Sample $S \sim \D^m$
+    \item Use some learning rule to construct $h = A(S)$ where $A: S \to Y^\X$
+    \item Ship $h$ and use it to predict on some future examples drawn from
+    $\D$
+  \end{enumerate}
+\subsection{From Expected Error to Empirical Error}
+  Because we cannot observe $L_\D (h)$ at the time of learning, we must turn to
+  an estimate. One natural estimate is the empirical error, $L_S (h)$
+  $$L_S(h) = \frac{1}{m} \sum_{t = 1}^m \left[ [ h(x_t) \neq y_t] \right]$$
+  A natural question arises: how good is this estimate? What is the distribution
+  of $|L_S(h) - L_\D(h)|$?
+  The first way to approach this question is to observe that $L_S(h)$ is a
+  Binomially-distributed random variable (scaled by $\frac{1}{m}$). It is a
+  success/failure experiment with $m$ trials and probability of success
+  $L_\D(h)$. This leads to some observations:
+  $$L_S(h) \sim \frac{1}{m} binom(m, L_\D(h))$$
+  The mean of a Binomial random variable is the product of its parameters:
+  $$\E\left[ L_S(h) \right] = \frac{1}{m} m L_\D(h) = L_\D(h)$$
+  We can also apply the Normal approximation:
+  $$L_S(h) \approx \mathcal{N}\left(L_\D(h), \sqrt{\frac{L_\D(h)(1 - L_\D(h))}{m}}
+  \right)$$
+  To consider tail probabilities, we need a bound which is easier to work with
+  analytically. Hoeffding's Inequality states that for a random variable
+  $X \sim binom(n,p)$,
+  $$\p\left[|X - \E X| \geq t \right] \leq 2e^{-2nt^2}$$
+  So if we want to bound the probability of a tail event as $\delta$, we set
+  $\delta = 2e^{-2nt^2}$ and solve for $t$, which gives us a
+  closeness guarantee for each value of $\delta$.
+  $$ t = \sqrt{\frac{\ln \left(\frac{\delta}{2}\right)}{2m}} $$
+  So we can say that with probability $\geq 1 - \delta$,
+  $$|L_S(h) - L_\D(h)| \leq \sqrt{\frac{\ln \left(\frac{\delta}{2}\right)}{2m}}$$
+
+\subsection{Empirical Risk Minimization}
+  We now have empirical risk, an estimate for the actual risk (expected
+  error), which is both computable for every $h \in \h$ and gives a bound on
+  the actual risk. This leads us to a learning rule called Empirical Risk
+  Minimization.
+  $$\text{ERM}_\h(S) = \hat{h} = \arg \min_{h \in \h} L_S(h)$$
+  The learning rule chooses the hypothesis $h$ which minimizes empirical error.
+  \\
+  \\But is the following inequality valid (with probability $\geq 1 - \delta$)?
+  $$|L_\D(\hat{h}) - L_S(\hat{h})|\leq
+  \sqrt{\frac{\ln \left(\frac{\delta}{2}\right)}{2m}}$$
+  The answer is no, and to illustrate why, we turn to the Monkey Pollster
+  example. Suppose there are 8 elections occurring next Tuesday, and a bunch of
+  pollsters are attempting to predict the outcomes. Since these pollsters are
+  actually monkeys flipping 8 fair coins, $\p[\text{all correct}] = 2^{-8}
+  = 0.004$. But there are 1,000 such pollsters, and a newspaper will break the
+  story about the best pollster on Wednesday morning. The best pollster of the
+  1,000 is very likely completely correct:
+  $$\p\left[\text{best pollster all correct}\right] \approx 1 -
+  e^{- \frac{1000}{256}} = 0.98 $$
+  We see that the probability of a randomly selected pollster being very far
+  from
+  correct half the time (far from the expected error) is relatively low, but
+  when we choose the best pollster after observing a sample, the pollster's
+  performance on the sample deviates from its mean.
+  \\
+  \\Consider a slight formalization of the above example. Let $y$ be random and
+  unpredictable. Then $L_\D(h) = \frac{1}{2}$. For each $h$ we construct, we
+  have $L_S(h) = 0$ with probability $\frac{1}{2^{|S|}}$. Thus for any
+  hypothesis, there is a low probability that the empirical error will deviate
+  far from the expected error. But if we have a large hypothesis class,
+  $|\h|>2^{|S|}$, then it becomes likely that the hypothesis chosen by ERM
+  will have $L_S(\hat{h})= 0$
+  \\
+  \\The following bound on empirical error distance holds true before we see the sample, and it still leaves some tiny probability that the deviance is huge:
+  \begin{equation}\label{individualprobabilitybound}
+    \forall h, \p\left[ | L_S(h) - L_\D(h)| \geq t \right] \leq
+     2 e^{-2mt^2}
+  \end{equation}
+  What we want is a guarantee about the probability that every hypothesis comes with a bounded difference between empirical and expected losses- we want to switch the quantifiers. So we look to bond the following probability:
+  $$\p\left( \forall h |L_S(h) - L_\D(h)| \geq t \right) \geq \hdots $$
+  We can use equation \eqref{individualprobabilitybound} and a union bound:
+  $$\p\left( \exists h \in \h |L_\D(h) - L_S(h)| \geq t \right) \leq
+  \sum_{h \in \h} \p\left( | L_S(h) - L_\D(h)| \geq t \right)
+  \leq |\h | 2 e^{-2mt^2} $$
+  By setting $\delta = |\h | 2 e^{-2mt^2}$, we can bound the probability of
+  a tail event. For any hypothesis class $\h$ and any source distribution
+   $\D$,
+  \begin{equation}\label{thrm}
+     \p_{S \sim \D^m} \left( \forall_{h \in H}, |L_\D(h) - L_S(h)|
+    \leq \sqrt{\frac{\ln |\h| + \ln \frac{2}{\delta}}{2m}} \right) \geq
+    1 - \delta
+  \end{equation}
+  \subsection{ERM Learning Guarantees}
+  So we can now begin making guarantees about the difference between the
+  loss and the empirical loss. The first guarantee is quantified over
+  any hypothesis class $\h$ and any source distribution $\D$, any sample
+  $S \sim \D^m$, with probability $1 - \delta$.
+  \begin{equation}\label{posthocguarantee}
+      L_\D(\hat{h}) \leq L_S(\hat{h}) + \sqrt{\frac{\ln |\h| + \ln \frac{2}{\delta}}{2m}}
+  \end{equation}
+  The bound \eqref{posthocguarantee} is a
+  post-hoc guarantee which can only be calculated after $\D$ is sampled and
+  $\hat{h}$ is constructed. This is relatively powerful: there is no assumption
+  made on $\D$, and the bound grows relatively slowly with the size of $\h$.
+  But this bound can be improved in two different ways: first by using a sharper
+  approximation of binomial tail probabilities. We rely on Hoeffding's bound,
+  but sharper ones exist. The second method of approximating $L_\D(\hat{h})$
+  is evaluating performance on a
+  set of testing observations $S'$. From a similar Hoeffding approximation and
+  an arbitrary learning rule, with probability $\geq 1 - \delta$
+  \begin{equation}\label{testerrorbound}
+    L_\D(A(S)) \leq L_{S'}(A(S)) + \sqrt{\frac{\ln\frac{1}{\delta}}{2|S'|}}
+  \end{equation}
+  \\
+  \\
+  The second guarantee is an extention of \eqref{posthocguarantee}. If we let
+  $h^* = \arg \min_{h \in \h} L_\D (h)$. Then $L_S(\hat{h}) \leq L_S(h^*)$.
+  From \eqref{thrm} we see $L_\D(h) \leq L_S(h) + \sqrt{\frac{\ln |\h| + \ln \frac{2}{\delta}}{2m}}$. So we have
+  $$ L_\D(\hat{h}) \leq L_S(h^*)+ \sqrt{\frac{\ln |\h| +
+  \ln \frac{2}{\delta}}{2m}} \leq L_\D(h^*) +
+  \sqrt{\frac{\ln |\h| + \ln \frac{2}{\delta}}{2m}} +
+  \sqrt{\frac{\ln |\h| + \ln \frac{2}{\delta}}{2m}}$$
+  \begin{equation}\label{aprioriguarantee}
+    L_\D(\hat{h}) \leq \inf_{h \in \h}L_\D(h) +
+    2  \sqrt{\frac{\ln |\h| + \ln \frac{2}{\delta}}{2m}}
+  \end{equation}
+  The bound in \eqref{aprioriguarantee} is an a-priori
+  guarantee which can be calculated before any sampling or estimation. It can
+  be useful to think of the first term of \eqref{aprioriguarantee} as the
+  approximation error, and the second term as the estimation error. If we know
+  from expert knowledge that there exists some good predictor $h^* \in \h$,
+  then
+  we know that we can create a good approximation, and our only problem
+  lies in estimating $h^*$ So then, in the ERM setting, we can state that with
+  probabilty \geq $ 1 - \delta$, if
+  we have a sample size of
+  \begin{equation}\label{samplecomplexity}
+    m = 2\frac{\ln |\h | + \ln \frac{2}{\delta}}{\epsilon^2}
+    = O(\frac{\log |\h|}{\epsilon^2})
+  \end{equation}
+  then we can ensure $L_\D(\hat{h}) \leq L_\D( h^*) + \epsilon$, and we can
+  call $m$ the sample complexity bound, which gives us a minimum sample
+  size to ensure our expected error is within $\epsilon$ of an optimum. This
+  can point toward a general notion of a hypothesis class' learnability: with a
+  large enough sample, we can bound the risk arbitrarily close to the optimum.
+  The second equality in \eqref{samplecomplexity} gives us important
+  asymptotics for $m$ with respect to $\h$ and $\epsilon$.
+
+  \subsection{PAC Learning}
+  Now for some definitions of learnability under the Probably Approximately
+  Correct learning model, first introduced by Leslie Valiant.
+  \begin{enumerate}
+    \item A hypothesis class $\h$ is \textbf{PAC-Learnable}
+     (in the realizable case) if $\exists$ some learning rule $A$ such that
+     $\forall \epsilon, \delta > 0$, $\exists m(\epsilon, \delta)$ such that
+     $\forall \D$ ($\exists h \in \h s.t. L_\D(h) = 0$ i.e. $\D$ realizable
+     by $\h$), $\forall_{S \sim \D^{m(\epsilon, \delta)}}^\delta ,
+     L_\D(A(S)) \leq \epsilon$
+    \item A hypothesis class $\h$ is \textbf{Agnostically PAC-Learnable}
+     if $\exists$ some learning rule $A$ such that
+     $\forall \epsilon, \delta > 0$, $\exists m(\epsilon, \delta)$ such that
+     $\forall \D$ , $\forall_{S \sim \D^{m(\epsilon, \delta)}}^\delta ,
+     L_\D(A(S)) \leq \inf_{h \in \h} L_\D(h) +  \epsilon$
+  \end{enumerate}
+  From above, we have seen that all finite hypothesis classes are
+  PAC-Learnable, and that
+  $$m_\h (\epsilon, \delta) \leq m_{ERM, \h}(\epsilon, \delta) \leq
+  O \left( \frac{\ln |\h | + \ln \frac{1}{\delta}}{\epsilon^2} \right)$$
+
+
+
+\end{document}
