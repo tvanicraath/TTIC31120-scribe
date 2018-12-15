@@ -7,5 +7,94 @@
 %\lecture{**LECTURE-NUMBER**}{**DATE**}{**LECTURER**}{**SCRIBE**}
 \lecture{1}{October 1}{Nati Srebro}{Akilesh Tangella}{What is Learning?}
 
+\textbf{Summary: } In this lecture, the notation we use for discussing machine learning is introduced. We then introduce online learning, prove a no free lunch theorem, and give algorithms and mistake bounds when additional assumptions are introduced. Finally, we discuss online learning linear predictors and our inability to learn them even in 1 dimension, without additional assumptions (discretization, etc.).
+
+\subsection{Initial Discussion and Basic Setup}
+Machine learning is an engineering paradigm. It uses data and examples, instead of expert knowledge, to automatically create systems which perform complex tasks. Some people like Noam Chomsky believe learning requires expert knowledge, while others like Geoff Hinton believe there is a universal learning algorithm which can learn anything. However, as we will see, without any prior assumptions on the data, it can be very difficult to learn.
+\subsubsection{Learning Predictors}
+The setup for a learning task will be as follows. There is a domain $\mcX$ which contains instances $x \in \mcX$. These instances are labelled with labels coming from a set $\mcY$. In many cases, our labels will be binary ($\mcY  = \{-1, +1\}$). A predictor (also called a classifier or hypothesis) is a function $h: \mcX \rightarrow \mcY$ which maps instances to labels. We can also write $h \in \mcY^{\mcX}$ (this denotes the set of functions from $\mcX$ to $\mcY$). An example is emails (instances) which we want to label as spam (+1) or not spam (-1). 
+\subsection{Online Learning}
+In an online learning process, we must learn "as we go." In particular, the training data is presented one at a time, and also acts as the test data. 
+\subsubsection{Setup}
+At each time $t = 1, 2,...$:
+\begin{itemize}
+    \item We receive an instance $x_t \in \mcX$
+    \item We predict a label $h_t(x_t) = \hat{y_t}$
+    \item We see the correct label $y_t$ for $x_t$.
+    \item We update the predictor to $h_{t+1}$ based on the new information ($(x_t, y_t)$).
+\end{itemize}
+A learning rule is a function $A: (\mcX \times \mcY)^{*} \rightarrow \mcY^{\mcX}$ from labelled data to predictors. In the case of online learning $h_t = A((x_1, y_1),...,(x_{t-1}, y_{t-1}))$. The goal in online learning is to make as few mistakes ($\hat{y_t} \neq y_t$) as possible.
+\subsubsection{No Free Lunch Theorem for Online Learning}
+Without any prior assumptions, it is impossible to do better than memorization in online learning. This sentiment is captured in the following no free lunch theorem:
+
+\begin{proposition}
+For any finite $\mcX$ with $n$ elements and any learning rule $A$, there exists a mapping $f(x)$ and a sequence $\{(x_t, f(x_t) = y_t)\}$ on which $A$ makes at least $n$ mistakes. 
+\end{proposition}
+\begin{proof}
+Consider the sequence $x_1, x_2,...,x_n$ consisting of the $n$ different elements from $\mcX$. Set the true labels as $y_t = f(x_t) = -h_t(x_t)$. Then a mistake will be made each round.
+\end{proof}
+From the above proof it is easy to draw the conclusion that for any infinite $\mcX$ and any learning rule $A$, there exists a mapping $f(x)$ and a sequence $\{(x_t, f(x_t) = y_t)\}$ such that $A$ makes infinitely many mistakes.
+\subsubsection{Online Learning Finite Hypothesis Classes}
+To make online learning more tractable, we must introduce some additional structure. A hypothesis class $\mcH$ is a subset of $\mcY^{\mcX}$. We assume that there is an $f \in \mcH$ such that $f(x_t) = y_t$ for every $t$. Such a hypothesis class is realizable. We restrict ourselves to hypothesis classes which are realizable and have finite cardinality.
+\subsubsection{Consistent Learning}
+Since our hypothesis class is realizable, at every time $t$, we can set $h_t$ as some hypothesis in $\mcH$ which is consistent with the data seen so far. An iterative implementation of this process is as follows:
+\begin{itemize}
+    \item Initialize $V_1 = \mcH$.
+    \item For $t = 1, 2,...$
+        \begin{itemize}
+            \item Output some $h_t \in V_t$ and predict $\hat{y_t} = h_t(x_t)$.
+            \item Update $V_{t+1} = \{h \in V_t | h(x_t) = y_t\}$
+        \end{itemize}
+\end{itemize}
+In any time $t$ in which we make a mistake, we eliminate at least one hypothesis from $V_t$ (namely, $h_t$), and thus, we can make at most $|\mcH| -1$ mistakes because if we made more then we would eliminate all hypotheses. In other words, $V_t$ would be $\emptyset$ for some $t$, which is impossible since $\mcH$ is realizable.
+\subsubsection{Halving Algorithm}
+Under the same assumptions as before, we can in fact obtain a better mistake bound. We will leverage the fact that we never restricted the hypotheses that we use at each time $t$ to make our predictions to be in $\mcH$. We need to figure out a way to eliminate more than one hypothesis every time we make a mistake. The following rule learning rule achieves this:
+
+\begin{itemize}
+    \item Initialize $V_1 = \mcH$.
+    \item For $t = 1, 2,...$
+    \begin{itemize}
+        \item Output $h_t$ where $h_t(x) = \text{MAJORITY}(h(x): h \in V_t)$
+        \item Update $V_{t+1} = \{h \in V_t | h(x_t) = y_t\}$
+    \end{itemize}
+\end{itemize}
+
+\begin{proposition}
+The above rule, known as the halving algorithm, will make at most $\log_2 |\mcH|$ mistakes as long as $\mcH$ is realizable.
+\end{proposition}
+\begin{proof}
+If $h(x_t) \neq y_t$ (we make a mistake), then over half the hypotheses in $V_t$ do not map $x_t$ to $y_t$, so all of them will be eliminated. As such, $|V_{t+1}| \leq \frac{|V_t|}{2}$. $|V_t| \geq 1$ since $\mcH$ is realizable, and thus, the number mistakes is at most $\log_2 |\mcH|$.
+\end{proof}
+\subsubsection{Discussion}
+We call $\log_2|\mcH|$ as the complexity of the hypothesis class $\mcH$. A more complex hypothesis class requires more mistakes and more data until we learn. Note there are "universal" hypothesis classes with finite cardinality, such as Python programs with 80 lines. Although the halving algorithm on such a hypothesis class would not make many mistakes, the issue is that it is computationally inefficient / infeasible to enumerate and evaluate all such Python programs to check which are consistent with the labelled data.
+\subsection{Learning Linear Predictors Online}
+\subsubsection{Setup}
+We stay in the online setting, but now consider an infinite hypothesis class, linear predictors. Linear predictors are defined as follows:
+\begin{itemize}
+    \item We have some features $\phi_i(x): \mcX \rightarrow \mathbb{R}$ for $1 \leq i \leq d$ and define $\phi(x) = (\phi_1(x),...,\phi_d(x))$.
+    \item Linear classifiers (halfspaces) over $\phi$ are: $\mcH = \{ h_{w, \theta} = \left [ \left[\left<w, \phi(x) \right>  > \theta\right]\right] | w \in \mathbb{R}^{d}, \theta \in \mathbb{R} \}$
+    \item Sometimes the bias term is unwieldy, but this can be dealt with by noticing that we can embed the hypothesis class of linear predictors with a bias term in $d$-dimensions into the hypothesis class of linear predictors without a bias term in $d+1$-dimensions by using an augmented feature map with a constant feature of 1 in the $d+1$ coordinate.
+\end{itemize}
+
+
+
+\subsubsection{Inability to Learn Linear Predictors in 1 Dimension}
+We consider the following 1 dimensional hypothesis class of linear predictors. We do this with a bias term, otherwise the problem is not so interesting. In particular, the hypothesis class we consider is $\mcH = \{ [[\phi(x) \leq \theta ]] | \phi \in \mathbb{R} \}$, where $\phi(x) \in [0,1]$. We claim the following sequence causes the online learner to make a mistake on each round:
+\begin{itemize}
+    \item $x_1 = 0.5$
+    \item $y_t = -\hat{y}_t$
+    \item $x_{t+1} = x_t + y_t2^{-(t+1)}$
+    \item Realized by $\theta = 0.5 + \sum_{t}y_t2^{-(t+1)}$
+\end{itemize}
+\begin{proof}
+Clearly, by the construction the online learner makes a mistake on every round so we just have to prove that the claimed $\theta$ is actually realized by the sequence. Notice that $x_T$ is just a truncated version of $\theta$. That is $x_T = 0.5 + \sum_{t=1}^{T-1}y_t2^{-(t+1)}$. So $\theta - x_T = \sum_{t=T}^{\infty}y_t2^{-(t+1)}$. This is positive exactly when $y_t$ is positive and negative exactly when $y_t$ is negative, as desired.
+
+\end{proof}
+\subsubsection{Potential Responses}
+One may raise the following qualms with the above discussion.
+\begin{itemize}
+    \item We required arbitrary numerical precision for the above argument to work. If instead, we discretized the possibile values for $\theta$, then the hypothesis class would be a finite set and we could use the halving algorithm. One issue with this argument may be that halving is not computationally efficient, however, to some extent, this can be remedied by the online ellipsoid algorithm.
+    \item We relied on a very particular, adversarial sequence to obtain the impossibility result, but perhaps if the sequence came randomly or from a typical set, then the online learner could obtain good results.
+\end{itemize}
 
 \end{document}
